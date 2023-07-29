@@ -33,15 +33,51 @@ async function run() {
     const wishListCollection = client.db("RentopiaDB").collection("wishLists");
 
     // user related api
-    app.post('/user', async (req, res) => {
+
+    app.get('/users',async(req,res)=>{
+      const result=await userCollection.find().toArray();
+      res.send(result);
+    })
+
+    // app.get('/users/:email',async(req,res)=>{
+    //   const email=req.params.email;
+    //   const query={email:email}
+    //   const result=await userCollection.findOne(query);
+    //   res.send(result);
+    // })
+    app.get('/user',async(req,res)=>{
+      const email=req.query.email;
+      if(!email){
+        res.send([]);
+      }
+      const query={email:email};
+      const result=await userCollection.findOne(query);
+      res.send(result);
+    })
+
+    app.post('/users', async (req, res) => {
       const user = req.body;
       const result = await userCollection.insertOne(user);
+      res.send(result);
+    })
+
+    app.delete('/users/:id',async(req,res)=>{
+      const id=req.params.id;
+      const query={_id:new ObjectId(id)};
+      const result=await userCollection.deleteOne(query);
       res.send(result);
     })
 
     // property related api
     app.get('/property', async (req, res) => {
       const result = await propertyCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/properties',async(req,res)=>{
+      const name=req.query.name;
+      const query={name:name};
+      const result=await propertyCollection.find(query).toArray();
       res.send(result);
     })
 
@@ -58,6 +94,13 @@ async function run() {
       const newProperty = req.body;
       console.log(newProperty);
       const result = await propertyCollection.insertOne(newProperty);
+      res.send(result);
+    })
+
+    app.delete('/property/:id',async(req,res)=>{
+      const id=req.params.id;
+      const query={_id: new ObjectId(id)};
+      const result=await propertyCollection.deleteOne(query);
       res.send(result);
     })
 
