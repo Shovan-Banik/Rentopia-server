@@ -56,21 +56,21 @@ async function run() {
     const propertyCollection = client.db("RentopiaDB").collection("properties");
     const wishListCollection = client.db("RentopiaDB").collection("wishLists");
     const bookingCollection = client.db("RentopiaDB").collection("bookings");
-    
+
 
     // Jwt related api
 
-    app.post('/jwt',(req,res)=>{
-      const user=req.body;
-      const token=jwt.sign(user, process.env.ACCESS_TOKEN_SECRET,{ expiresIn: '1h' });
-      res.send({token})
+    app.post('/jwt', (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+      res.send({ token })
     })
 
 
     // user related api
 
-    app.get('/users',verifyJWT,async(req,res)=>{
-      const result=await userCollection.find().toArray();
+    app.get('/users', verifyJWT, async (req, res) => {
+      const result = await userCollection.find().toArray();
       res.send(result);
     })
 
@@ -80,13 +80,13 @@ async function run() {
     //   const result=await userCollection.findOne(query);
     //   res.send(result);
     // })
-    app.get('/user',async(req,res)=>{
-      const email=req.query.email;
-      if(!email){
+    app.get('/user', async (req, res) => {
+      const email = req.query.email;
+      if (!email) {
         res.send([]);
       }
-      const query={email:email};
-      const result=await userCollection.findOne(query);
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
       res.send(result);
     })
 
@@ -96,10 +96,10 @@ async function run() {
       res.send(result);
     })
 
-    app.delete('/users/:id',async(req,res)=>{
-      const id=req.params.id;
-      const query={_id:new ObjectId(id)};
-      const result=await userCollection.deleteOne(query);
+    app.delete('/users/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
       res.send(result);
     })
 
@@ -109,11 +109,25 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/properties',async(req,res)=>{
-      const name=req.query.name;
-      const query={name:name};
-      const result=await propertyCollection.find(query).toArray();
+    app.get('/properties', async (req, res) => {
+      const name = req.query.name;
+      const query = { name: name };
+      const result = await propertyCollection.find(query).toArray();
       res.send(result);
+    })
+
+    app.patch('/properties/:id',async(req,res)=>{
+      const id=req.params.id;
+      const modifiedData=req.body;
+      const filter={_id: new ObjectId(id)};
+      const updatedDoc={
+        $set:{
+          ...modifiedData
+        }
+      }
+      const result=await propertyCollection.updateOne(filter,updatedDoc);
+      res.send(result);
+
     })
 
 
@@ -132,23 +146,23 @@ async function run() {
       res.send(result);
     })
 
-    app.delete('/property/:id',async(req,res)=>{
-      const id=req.params.id;
-      const query={_id: new ObjectId(id)};
-      const result=await propertyCollection.deleteOne(query);
+    app.delete('/property/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await propertyCollection.deleteOne(query);
       res.send(result);
     })
 
     // wishlist collection
 
-    app.get('/wishLists',verifyJWT, async (req, res) => {
+    app.get('/wishLists', verifyJWT, async (req, res) => {
       const email = req.query.email;
       if (!email) {
         res.send([]);
       }
-      const decodedEmail=req.decoded.email;
-      if(email !==decodedEmail){
-        return res.status(403).send({error:true, message:'forbidden access'})
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ error: true, message: 'forbidden access' })
       }
       const query = { email: email };
       const result = await wishListCollection.find(query).toArray();
@@ -171,14 +185,32 @@ async function run() {
     })
 
     // booking related api
-    app.post('/bookings', async(req,res)=>{
-      console.log(req.body);
-      const booking=req.body;
 
-      const selectedProperty=await wishListCollection.findOne({_id : new ObjectId(req.body.productId)});
+    app.get('/allBookings', async(req,res)=>{
+      const result=await bookingCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/bookings', async(req,res)=>{
+      const email=req.query.email;
+      if (!email) {
+        res.send([]);
+      }
+      const query = { 'selectedProperty.email': email };
+      const result = await bookingCollection.find(query).toArray();
+      res.send(result);
+    })
+
+
+
+    app.post('/bookings', async (req, res) => {
+      console.log(req.body);
+      const booking = req.body;
+
+      const selectedProperty = await wishListCollection.findOne({ _id: new ObjectId(req.body.productId) });
       console.log(selectedProperty);
 
-      const tran_id=new ObjectId().toString();
+      const tran_id = new ObjectId().toString();
 
       const data = {
         total_amount: selectedProperty?.price,
@@ -209,47 +241,48 @@ async function run() {
         ship_state: 'Dhaka',
         ship_postcode: 1000,
         ship_country: 'Bangladesh',
-    };
+      };
 
-    console.log(data);
+      console.log(data);
 
-    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
-    sslcz.init(data).then(apiResponse => {
+      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+      sslcz.init(data).then(apiResponse => {
         // Redirect the user to payment gateway
         let GatewayPageURL = apiResponse.GatewayPageURL;
-        res.send({url:GatewayPageURL});
+        res.send({ url: GatewayPageURL });
 
-        const finalOrder={
+        const finalOrder = {
           selectedProperty,
-          paidStatus:false,
-          transactionId:tran_id
+          paidStatus: false,
+          transactionId: tran_id
         }
-        const result=bookingCollection.insertOne(finalOrder);
+        const result = bookingCollection.insertOne(finalOrder);
 
 
         console.log('Redirecting to: ', GatewayPageURL)
-    });
-    app.post('/payment/success/:tranId',async(req,res)=>{
-      console.log(req.params.tranId);
-      const result=await bookingCollection.updateOne({transactionId:req.params.tranId},{
-        $set:{
-          paidStatus:true
-        },
+      });
+      app.post('/payment/success/:tranId', async (req, res) => {
+        console.log(req.params.tranId);
+        const result = await bookingCollection.updateOne({ transactionId: req.params.tranId }, {
+          $set: {
+            paidStatus: true
+          },
+        })
+        if (result.modifiedCount > 0) {
+          res.redirect(`http://localhost:5173/dashboard/payment/success/${req.params.tranId}`)
+        }
+
       })
-      if(result.modifiedCount>0){
-        res.redirect(`http://localhost:5173/dashboard/payment/success/${req.params.tranId}`)
-      }
+
+      app.post('/payment/fail/:tranId', async (req, res) => {
+        const result = await bookingCollection.deleteOne({ transactionId: req.params.tranId });
+        if (result.deletedCount > 0) {
+          res.redirect(`http://localhost:5173/dashboard/payment/fail/${req.params.tranId}`)
+        }
+      })
 
     })
 
-    app.post('/payment/fail/:tranId',async(req,res)=>{
-      const result=await bookingCollection.deleteOne({transactionId:req.params.tranId});
-      if(result.deletedCount){
-        res.redirect(`http://localhost:5173/dashboard/payment/fail/${req.params.tranId}`)
-      }
-    })
-
-    })
 
 
 
